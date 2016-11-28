@@ -1,0 +1,8 @@
+[package]
+authors = ["nokaa <nokaa@cock.li>"]
+name = "cookie"
+version = "0.1.0"
+
+[dependencies]
+base64 = "0.2.1"
+libsodium-sys = "0.0.12"

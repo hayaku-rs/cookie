@@ -47,7 +47,7 @@ impl Cookie {
     /// are set, the `Max-Age` attribute has precedence. However, the `Max-Age`
     /// attribute is not supported by some user agents. See rfc6265 4.1.2.2 for
     /// more information.
-    pub fn expires(&mut self, expires: String) -> &mut Cookie {
+    pub fn expires(mut self, expires: String) -> Cookie {
         self.expires = Some(expires);
         self
     }
@@ -58,14 +58,14 @@ impl Cookie {
     /// are set, the `Max-Age` attribute has precedence. However, the `Max-Age`
     /// attribute is not supported by some user agents. See rfc6265 4.1.2.2 for
     /// more information.
-    pub fn max_age(&mut self, max_age: u64) -> &mut Cookie {
+    pub fn max_age(mut self, max_age: u64) -> Cookie {
         self.max_age = Some(max_age);
         self
     }
 
     /// Sets the `Domain` attribute, specifying which hosts the cookie will
     /// be sent to by the User Agent.
-    pub fn domain(&mut self, domain: String) -> &mut Cookie {
+    pub fn domain(mut self, domain: String) -> Cookie {
         self.domain = Some(domain);
         self
     }
@@ -73,14 +73,14 @@ impl Cookie {
     /// Sets the `Path` attribute, limiting the scope of the cookie to the
     /// given set of paths. This attribute cannot be relied upon for
     /// security. See rfc6265 4.1.2.4 for more information.
-    pub fn path(&mut self, path: String) -> &mut Cookie {
+    pub fn path(mut self, path: String) -> Cookie {
         self.path = Some(path);
         self
     }
 
     /// Sets the `Secure` attribute, limiting the scope of the cookie to
     /// "secure" channels, such as HTTPS.
-    pub fn secure(&mut self) -> &mut Cookie {
+    pub fn secure(mut self) -> Cookie {
         self.secure = true;
         self
     }
@@ -89,7 +89,7 @@ impl Cookie {
     /// HTTP requests. As an example, this means that the cookie would not be
     /// exposed to scripts via a web browser API. This attribute is independent
     /// of the `Secure` attribute; a cookie can have both attributes.
-    pub fn httponly(&mut self) -> &mut Cookie {
+    pub fn httponly(mut self) -> Cookie {
         self.httponly = true;
         self
     }
@@ -184,7 +184,7 @@ impl Cookie {
                     cookie_bytes = &cookie_bytes[8..];
                     let split: Vec<&[u8]> = cookie_bytes.splitn(2, |b| *b == b';').collect();
                     let expires = String::from_utf8(split[0].to_owned()).unwrap();
-                    cookie.expires(expires);
+                    cookie = cookie.expires(expires);
                     cookie_bytes = if split.len() == 1 {
                         &[]
                     } else {
@@ -194,7 +194,7 @@ impl Cookie {
                     cookie_bytes = &cookie_bytes[8..];
                     let split: Vec<&[u8]> = cookie_bytes.splitn(2, |b| *b == b';').collect();
                     let max_age = String::from_utf8(split[0].to_owned()).unwrap();
-                    cookie.max_age(u64::from_str_radix(&max_age, 10).unwrap());
+                    cookie = cookie.max_age(u64::from_str_radix(&max_age, 10).unwrap());
                     cookie_bytes = if split.len() == 1 {
                         &[]
                     } else {
@@ -204,7 +204,7 @@ impl Cookie {
                     cookie_bytes = &cookie_bytes[7..];
                     let split: Vec<&[u8]> = cookie_bytes.splitn(2, |b| *b == b';').collect();
                     let domain = String::from_utf8(split[0].to_owned()).unwrap();
-                    cookie.domain(domain);
+                    cookie = cookie.domain(domain);
                     cookie_bytes = if split.len() == 1 {
                         &[]
                     } else {
@@ -214,7 +214,7 @@ impl Cookie {
                     cookie_bytes = &cookie_bytes[5..];
                     let split: Vec<&[u8]> = cookie_bytes.splitn(2, |b| *b == b';').collect();
                     let path = String::from_utf8(split[0].to_owned()).unwrap();
-                    cookie.path(path);
+                    cookie = cookie.path(path);
                     cookie_bytes = if split.len() == 1 {
                         &[]
                     } else {
@@ -223,7 +223,7 @@ impl Cookie {
                 } else if cookie_bytes.starts_with(b"Secure") {
                     cookie_bytes = &cookie_bytes[6..];
                     let split: Vec<&[u8]> = cookie_bytes.splitn(2, |b| *b == b';').collect();
-                    cookie.secure();
+                    cookie = cookie.secure();
                     cookie_bytes = if split.len() == 1 {
                         &[]
                     } else {
@@ -232,7 +232,7 @@ impl Cookie {
                 } else if cookie_bytes.starts_with(b"HttpOnly") {
                     cookie_bytes = &cookie_bytes[8..];
                     let split: Vec<&[u8]> = cookie_bytes.splitn(2, |b| *b == b';').collect();
-                    cookie.httponly();
+                    cookie = cookie.httponly();
                     cookie_bytes = if split.len() == 1 {
                         &[]
                     } else {

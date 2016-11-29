@@ -13,6 +13,12 @@ fn simple_cookie_bytes() {
     assert_eq!(cookie_bytes, cookie.as_bytes());
 }
 
+#[test]
+fn builder_pattern() {
+    let cookie = Cookie::new("name", "value").path("/".to_string());
+    println!("{:?}", cookie);
+}
+
 fn base64_encode(input: &[u8]) -> String {
     use base64::Base64Mode;
     base64::encode_mode(input, Base64Mode::UrlSafe)

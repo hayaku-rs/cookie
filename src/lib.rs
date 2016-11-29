@@ -5,13 +5,14 @@ extern crate libsodium_sys;
 // use libsodium_sys::crypto_aead_chacha20poly1305_encrypt as encrypt;
 // use libsodium_sys::crypto_aead_chacha20poly1305_decrypt as decrypt;
 
+#[derive(Clone, Debug, PartialEq)]
 pub struct Cookie {
     /// The name of this cookie
     name: String,
     /// The value of this cookie
     value: String,
     /// Indicates the maximum lifetime of the cookie.
-    expires: Option<()>,
+    expires: Option<String>,
     /// Indicates the maximum lifetime of the cookie.
     max_age: Option<u64>,
     /// Specifies those hosts to which the cookie will be sent.
@@ -25,7 +26,9 @@ pub struct Cookie {
 }
 
 impl Cookie {
-    pub fn new(name: String, value: String) -> Cookie {
+    pub fn new<S: Into<String>>(name: S, value: S) -> Cookie {
+        let name = name.into();
+        let value = value.into();
         Cookie {
             name: name,
             value: value,
@@ -39,11 +42,12 @@ impl Cookie {
     }
 
     /// Sets the `Expires` attribute of the cookie, indicating the maximum
-    /// lifetime of the cookie. If both the `Expires` and `Max-Age` attributes
+    /// lifetime of the cookie. The `Expires` attribute must correspond with
+    /// rfc2616 3.2 date-times. If both the `Expires` and `Max-Age` attributes
     /// are set, the `Max-Age` attribute has precedence. However, the `Max-Age`
     /// attribute is not supported by some user agents. See rfc6265 4.1.2.2 for
     /// more information.
-    pub fn expires(&mut self, expires: ()) -> &mut Cookie {
+    pub fn expires(&mut self, expires: String) -> &mut Cookie {
         self.expires = Some(expires);
         self
     }
@@ -92,13 +96,153 @@ impl Cookie {
 
     /// Serialize this cookie for writing to a socket.
     pub fn as_bytes(&self) -> Vec<u8> {
+        use std::fmt::Write;
         let mut cookie_bytes = String::new();
-        let key = base64_encode(self.name.as_bytes());
-        let value = base64_encode(self.name.as_bytes());
-        cookie_bytes.push_str(&key);
+        // Write the name and value
+        // We base64 encode the name and value to ensure
+        // compatibility with user agents. One alternative is
+        // to percent encode, but percent encoding takes more space.
+        let name = base64_encode(self.name.as_bytes());
+        let value = base64_encode(self.value.as_bytes());
+        cookie_bytes.push_str(&name);
         cookie_bytes.push('=');
         cookie_bytes.push_str(&value);
+
+        // Check for expires attribute
+        if let Some(ref expires) = self.expires {
+            cookie_bytes.push_str("; Expires=");
+            cookie_bytes.push_str(expires);
+        }
+
+        // Check for max age attribute
+        if let Some(age) = self.max_age {
+            cookie_bytes.push_str("; Max-Age=");
+            // TODO(nokaa): It's probably safe to unwrap here.
+            write!(&mut cookie_bytes, "{}", age).unwrap();
+        }
+
+        // Check for domain attribute
+        if let Some(ref domain) = self.domain {
+            cookie_bytes.push_str("; Domain=");
+            cookie_bytes.push_str(domain);
+        }
+
+        // Check for path attribute
+        if let Some(ref path) = self.path {
+            cookie_bytes.push_str("; Path=");
+            cookie_bytes.push_str(path);
+        }
+
+        // Check for secure attribute
+        if self.secure {
+            cookie_bytes.push_str("; Secure");
+        }
+
+        // Check for httponly attribute
+        if self.httponly {
+            cookie_bytes.push_str("; HttpOnly");
+        }
+
         cookie_bytes.into_bytes()
+    }
+
+    pub fn from_bytes(cookie_bytes: &[u8]) -> Cookie {
+        let len = cookie_bytes.len();
+        let mut name = String::new();
+        let mut value = String::new();
+        let mut i = 0;
+        let mut in_name = true;
+        while i < len {
+            match cookie_bytes[i] {
+                b'=' => in_name = false,
+                b';' => {
+                    // A cookie will have `; ` after the value
+                    // if it contains other components.
+                    i += 2;
+                    break;
+                }
+                c => {
+                    if in_name {
+                        name.push(c as char);
+                    } else {
+                        value.push(c as char);
+                    }
+                }
+            }
+            i += 1;
+        }
+
+        // Decode from base64
+        let name = String::from_utf8(base64_decode(&name)).unwrap();
+        let value = String::from_utf8(base64_decode(&value)).unwrap();
+        let mut cookie = Cookie::new(name, value);
+
+        if i < len {
+            let mut cookie_bytes = &cookie_bytes[i..];
+            while !cookie_bytes.is_empty() {
+                if cookie_bytes.starts_with(b"Expires=") {
+                    cookie_bytes = &cookie_bytes[8..];
+                    let split: Vec<&[u8]> = cookie_bytes.splitn(2, |b| *b == b';').collect();
+                    let expires = String::from_utf8(split[0].to_owned()).unwrap();
+                    cookie.expires(expires);
+                    cookie_bytes = if split.len() == 1 {
+                        &[]
+                    } else {
+                        &split[1][1..]
+                    };
+                } else if cookie_bytes.starts_with(b"Max-Age=") {
+                    cookie_bytes = &cookie_bytes[8..];
+                    let split: Vec<&[u8]> = cookie_bytes.splitn(2, |b| *b == b';').collect();
+                    let max_age = String::from_utf8(split[0].to_owned()).unwrap();
+                    cookie.max_age(u64::from_str_radix(&max_age, 10).unwrap());
+                    cookie_bytes = if split.len() == 1 {
+                        &[]
+                    } else {
+                        &split[1][1..]
+                    };
+                } else if cookie_bytes.starts_with(b"Domain=") {
+                    cookie_bytes = &cookie_bytes[7..];
+                    let split: Vec<&[u8]> = cookie_bytes.splitn(2, |b| *b == b';').collect();
+                    let domain = String::from_utf8(split[0].to_owned()).unwrap();
+                    cookie.domain(domain);
+                    cookie_bytes = if split.len() == 1 {
+                        &[]
+                    } else {
+                        &split[1][1..]
+                    };
+                } else if cookie_bytes.starts_with(b"Path=") {
+                    cookie_bytes = &cookie_bytes[5..];
+                    let split: Vec<&[u8]> = cookie_bytes.splitn(2, |b| *b == b';').collect();
+                    let path = String::from_utf8(split[0].to_owned()).unwrap();
+                    cookie.path(path);
+                    cookie_bytes = if split.len() == 1 {
+                        &[]
+                    } else {
+                        &split[1][1..]
+                    };
+                } else if cookie_bytes.starts_with(b"Secure") {
+                    cookie_bytes = &cookie_bytes[6..];
+                    let split: Vec<&[u8]> = cookie_bytes.splitn(2, |b| *b == b';').collect();
+                    cookie.secure();
+                    cookie_bytes = if split.len() == 1 {
+                        &[]
+                    } else {
+                        &split[1][1..]
+                    };
+                } else if cookie_bytes.starts_with(b"HttpOnly") {
+                    cookie_bytes = &cookie_bytes[8..];
+                    let split: Vec<&[u8]> = cookie_bytes.splitn(2, |b| *b == b';').collect();
+                    cookie.httponly();
+                    cookie_bytes = if split.len() == 1 {
+                        &[]
+                    } else {
+                        &split[1][1..]
+                    };
+                }
+            }
+        }
+
+        cookie
     }
 }
 

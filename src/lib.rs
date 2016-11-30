@@ -102,11 +102,13 @@ impl Cookie {
         // We base64 encode the name and value to ensure
         // compatibility with user agents. One alternative is
         // to percent encode, but percent encoding takes more space.
-        let name = base64_encode(self.name.as_bytes());
-        let value = base64_encode(self.value.as_bytes());
-        cookie_bytes.push_str(&name);
+        // let name = base64_encode(self.name.as_bytes());
+        // let value = base64_encode(self.value.as_bytes());
+        let name = &self.name;
+        let value = &self.value;
+        cookie_bytes.push_str(name);
         cookie_bytes.push('=');
-        cookie_bytes.push_str(&value);
+        cookie_bytes.push_str(value);
 
         // Check for expires attribute
         if let Some(ref expires) = self.expires {
@@ -173,8 +175,8 @@ impl Cookie {
         }
 
         // Decode from base64
-        let name = String::from_utf8(base64_decode(&name)).unwrap();
-        let value = String::from_utf8(base64_decode(&value)).unwrap();
+        // let name = String::from_utf8(base64_decode(&name)).unwrap();
+        // let value = String::from_utf8(base64_decode(&value)).unwrap();
         let mut cookie = Cookie::new(name, value);
 
         if i < len {

@@ -8,21 +8,21 @@ extern crate libsodium_sys;
 #[derive(Clone, Debug, PartialEq)]
 pub struct Cookie {
     /// The name of this cookie
-    name: String,
+    pub name: String,
     /// The value of this cookie
-    value: String,
+    pub value: String,
     /// Indicates the maximum lifetime of the cookie.
-    expires: Option<String>,
+    pub expires: Option<String>,
     /// Indicates the maximum lifetime of the cookie.
-    max_age: Option<u64>,
+    pub max_age: Option<u64>,
     /// Specifies those hosts to which the cookie will be sent.
-    domain: Option<String>,
+    pub domain: Option<String>,
     /// Sets the scope of each cookie to a set of paths.
-    path: Option<String>,
+    pub path: Option<String>,
     /// Sets the scope of the cookie to "secure" channels.
-    secure: bool,
+    pub secure: bool,
     /// Sets the scope of the cookie to HTTP requests only.
-    httponly: bool,
+    pub httponly: bool,
 }
 
 impl Cookie {
